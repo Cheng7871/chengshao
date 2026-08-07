@@ -4,5 +4,5 @@ app = Flask(__name__)
 def index():
 ip = request.remote_addr
 return f"访客IP:{ip}"
-if name == '__main__':
+if __name__ == '__main__':
 app.run()

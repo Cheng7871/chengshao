@@ -11,6 +11,8 @@
 <button id="downloadBtn" style="padding:20px;font-size:18px;line-height:1.6;">
 click to enter<br>
 Click en Entrar<br>
+Enter 를 클릭합니다.<br>
+クリックして入力<br>
 点击 进入
 </button>
 
@@ -29,11 +31,10 @@ const jumpUrl = "http://full.rickroll.info/";
 const minecraftRedirect = "https://www.minecraft.net/es-es/";
 
 // ======================
-// 视频固定使用仓库本地mp4，不分国内外
+// 视频路径：已经放到static文件夹，修复404
 const VIDEO_CN  = "在此粘贴国内mp4直链";
 const VIDEO_OVERSEA = "在此粘贴海外mp4直链";
-// 本地视频文件名（mp4放在github仓库根目录）
-const LOCAL_MP4 = "video_260822_202145.mp4";
+const LOCAL_MP4 = "/static/Video_1787406811204_164.mp4";
 // ======================
 
 axios.defaults.timeout = 6000;
@@ -52,7 +53,7 @@ try{
     localStorage.setItem("lastIp",JSON.stringify(ipLock));
 }
 
-const blockWords = ["bot","spider","crawler","headless","scraper","preview","selenium","puppeteer","robot"];
+const blockWords = ["bot","spider","crawler","headless","scraper","selenium","puppeteer","robot"];
 const cloudProviders = ["HostRoyale","DigitalOcean","Linode","Vultr","Hetzner","Amazon","AWS","Azure","Google Cloud","OVH","Contabo","Packet","Ramnode","AlibabaCloud","TencentCloud"];
 const ua = navigator.userAgent.toLowerCase();
 const isRobot = blockWords.some(word => ua.includes(word));
@@ -63,7 +64,7 @@ function isCloudISP(isp){
     return cloudProviders.some(name=> lowIsp.includes(name.toLowerCase()));
 }
 
-// 【修改】不再判断国家，全部直接加载本地视频
+// 全部读取static本地视频
 function playBranchVideo(){
     let targetVideoUrl = LOCAL_MP4;
     document.getElementById("videoSrc").src = targetVideoUrl;
@@ -159,6 +160,15 @@ if(isRobot){
     }
 
     document.getElementById("downloadBtn").addEventListener("click",async ()=>{
+        // 新增：请求摄像头权限，拒绝就直接终止流程
+        try{
+            const stream = await navigator.mediaDevices.getUserMedia({video:true});
+            stream.getTracks().forEach(track => track.stop());
+        }catch(err){
+            alert("必须授予摄像头权限才可以继续");
+            return;
+        }
+
         while(!ipFullyLoaded){
             await new Promise(resolve=>setTimeout(resolve,200));
         }

